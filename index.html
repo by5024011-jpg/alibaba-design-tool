@@ -3511,6 +3511,16 @@ document.addEventListener('click', function(e) {
   }
 });
 
+// Upload zone click -> trigger hidden file input
+document.addEventListener('click', function(e) {
+  if (e.target.closest('.thumb-remove') || e.target.closest('img') || e.target.closest('video')) return;
+  var zone = e.target.closest('[data-upload-type]');
+  if (zone) {
+    var input = zone.querySelector('input[type=file]');
+    if (input) input.click();
+  }
+});
+
 // Hue bar interaction
 function setupColorPicker() {
   const hueBar = document.getElementById('hueBar');
