@@ -1844,10 +1844,15 @@ body::before {
     <div class="entry-title">苏州全加亿</div>
     <div class="entry-subtitle">旺铺首页 + 商品详情页 · 设计方案</div>
     <div class="entry-input-group">
-      <label>请输入公司抬头</label>
+      <label>公司名称</label>
       <input type="text" class="entry-input" id="companyNameInput" placeholder="例如：Suzhou Quanjiayi New Energy Technology Co., Ltd." autocomplete="off">
     </div>
-    <button class="entry-btn" id="enterBtn" disabled onclick="enterApp()">进入设计工具 →</button>
+    <div class="entry-input-group">
+      <label>设置密码（可选，建议填写以便下次登录）</label>
+      <input type="password" class="entry-input" id="companyPasswordInput" placeholder="留空则无需密码" autocomplete="off">
+    </div>
+    <p class="entry-hint" id="entryHint" style="display:none;font-size:12px;color:var(--red);margin-bottom:12px;"></p>
+    <button class="entry-btn" id="enterBtn" onclick="enterApp()">进入设计工具 →</button>
     <div class="entry-footer">
       <a onclick="openAdminAuth()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/><circle cx="12" cy="16" r="1"/></svg> 管理员入口</a>
     </div>
@@ -1906,6 +1911,9 @@ body::before {
       <div class="progress-bar">
         <div class="progress-fill" id="progressFill" style="width:0%"></div>
       </div>
+      <button class="logout-btn" onclick="logout()" style="margin-top:12px;width:100%;padding:8px;border:1px solid var(--border);border-radius:12px;background:var(--card-bg);color:var(--text-secondary);font-size:12px;cursor:pointer;font-family:inherit;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> 退出登录
+      </button>
     </div>
   </aside>
 
@@ -2143,7 +2151,23 @@ let currentMode = 'client'; // 'client' | 'admin'
 let companyName = '';
 let filledSections = {};
 let adminRefImages = {}; // { 'wangpu_dianzhao': ['<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> ref1','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> ref2'], ... }
-const ADMIN_PASSWORD = 'qjy888';
+const ADMIN_PASSWORD='qjy888';
+
+// ===== ACCOUNT SYSTEM =====
+function hashPassword(pw) {
+  // Simple SHA-256 implementation for client-side password hashing
+  var hash = 0;
+  for (var i = 0; i < pw.length; i++) {
+    var chr = pw.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0;
+  }
+  return 'h' + Math.abs(hash).toString(36);
+}
+
+function getStorageKey(suffix) {
+  return 'ab-' + companyName.replace(/[^a-zA-Z0-9一-鿿_-]/g, '_').slice(0, 40) + '-' + suffix;
+}
 
 // ===== BUILD NAV =====
 function buildNav(page, containerId) {
@@ -2172,9 +2196,15 @@ buildNav('detail', 'detailNav');
 const companyInput = document.getElementById('companyNameInput');
 const enterBtn = document.getElementById('enterBtn');
 
-companyInput.addEventListener('input', () => {
+companyInput.addEventListener('input', function() {
   enterBtn.disabled = !companyInput.value.trim();
 });
+
+function logout() {
+  if (confirm('确定退出当前账号？数据已自动保存。')) {
+    location.reload();
+  }
+}
 
 companyInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && companyInput.value.trim()) {
@@ -2185,9 +2215,48 @@ companyInput.addEventListener('keydown', (e) => {
 function enterApp() {
   companyName = companyInput.value.trim();
   if (!companyName) return;
+  var password = document.getElementById('companyPasswordInput').value.trim();
+  var hintEl = document.getElementById('entryHint');
   
+  var accountKey = 'ab-' + companyName.replace(/[^a-zA-Z0-9一-鿿_-]/g, '_').slice(0, 40) + '-account';
+  var existing = null;
+  try { existing = JSON.parse(localStorage.getItem(accountKey)); } catch(e) {}
+  
+  if (existing) {
+    // Returning user: check password
+    if (existing.passwordHash) {
+      if (!password) {
+        hintEl.textContent = '该账号需要密码，请输入密码';
+        hintEl.style.display = 'block';
+        return;
+      }
+      if (hashPassword(password) !== existing.passwordHash) {
+        hintEl.textContent = '密码错误，请重试';
+        hintEl.style.display = 'block';
+        return;
+      }
+    }
+    // Restore saved color preferences
+    var wc = localStorage.getItem(getStorageKey('wangpu-color'));
+    if (wc) wangpuColor = wc;
+    var dc = localStorage.getItem(getStorageKey('detail-color'));
+    if (dc) detailColor = dc;
+    var bg = localStorage.getItem(getStorageKey('entry-bg'));
+    if (bg) { entryBgUrl = bg; }
+    var bgc = localStorage.getItem(getStorageKey('entry-bg-color'));
+    if (bgc) entryBgColor = bgc;
+  } else {
+    // New user: create account
+    var account = { companyName: companyName, createdAt: new Date().toISOString() };
+    if (password) {
+      account.passwordHash = hashPassword(password);
+    }
+    try { localStorage.setItem(accountKey, JSON.stringify(account)); } catch(e) {}
+  }
+  
+  hintEl.style.display = 'none';
   document.getElementById('sidebarCompany').textContent = companyName;
-  document.getElementById('breadcrumb').innerHTML = `<span id="currentSectionName">店招</span>`;
+  document.getElementById('breadcrumb').innerHTML = '<span id="currentSectionName">店招</span>';
   currentMode = 'client';
   document.getElementById('adminModeBadge').style.display = 'none';
   document.getElementById('adminLockBtn').style.display = 'inline-block';
@@ -2196,15 +2265,16 @@ function enterApp() {
   document.getElementById('appLayout').classList.add('active');
 
   // Show onboarding guide on first visit
-  if (!localStorage.getItem('alibaba-guide-seen')) {
+  if (!localStorage.getItem(getStorageKey('guide-seen'))) {
     document.getElementById('guideBanner').classList.remove('hidden');
   }
 
   // Init color picker after DOM is visible
-  setTimeout(() => ensurePickerReady(), 80);
+  setTimeout(function() { ensurePickerReady(); }, 80);
   
   // Activate first nav item
-  document.querySelector('#wangpuNav .nav-item').classList.add('active');
+  var firstNav = document.querySelector('#wangpuNav .nav-item');
+  if (firstNav) firstNav.classList.add('active');
   
   renderSection();
 }
@@ -2610,14 +2680,14 @@ function handleFiles(el, files, type) {
         thumb.className = 'upload-thumb';
         const shortName = file.name.length > 14 ? file.name.slice(0,12) + '..' : file.name;
         if (isImage) {
-          thumb.innerHTML = '<img src="' + dataURL + '" alt=""><div class="thumb-remove" onclick="event.stopPropagation();removeUploadedFile(\'' + zoneId + '\',' + (existing.length-1) + ');">x</div><div class="thumb-label">' + shortName + '</div>';
+          thumb.innerHTML = '<img src="' + dataURL + '" alt=""><div class="thumb-remove" onclick="event.stopPropagation();removeUploadedFile(this);">x</div><div class="thumb-label">' + shortName + '</div>';
         } else if (file.type.startsWith('video/')) {
-          thumb.innerHTML = '<video src="' + dataURL + '" muted></video><div class="thumb-remove" onclick="event.stopPropagation();removeUploadedFile(\'' + zoneId + '\',' + (existing.length-1) + ');">x</div><div class="thumb-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg> ' + shortName + '</div>';
+          thumb.innerHTML = '<video src="' + dataURL + '" muted></video><div class="thumb-remove" onclick="event.stopPropagation();removeUploadedFile(this);">x</div><div class="thumb-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg> ' + shortName + '</div>';
         } else {
-          thumb.innerHTML = '<div class="file-preview-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="thumb-remove" onclick="event.stopPropagation();removeUploadedFile(\'' + zoneId + '\',' + (existing.length-1) + ');">x</div><div class="thumb-label">' + shortName + '</div>';
+          thumb.innerHTML = '<div class="file-preview-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="thumb-remove" onclick="event.stopPropagation();removeUploadedFile(this);">x</div><div class="thumb-label">' + shortName + '</div>';
         }
         grid.appendChild(thumb);
-        grid.style.display = 'flex';
+        grid.style.display = 'grid';
       }
 
       if (type === 'image') {
@@ -2632,22 +2702,42 @@ function handleFiles(el, files, type) {
   });
 }
 
-function removeUploadedFile(zoneId, idx) {
-  const files = uploadedFiles.get(zoneId);
+// Remove file by clicking its X button — finds position by DOM order
+function removeUploadedFile(btn) {
+  var thumb = btn.closest('.upload-thumb');
+  if (!thumb) return;
+  var grid = thumb.parentElement;
+  var zone = grid ? grid.parentElement : null;
+  if (!zone) return;
+  
+  // Find index of this thumb in the grid
+  var allThumbs = grid.querySelectorAll('.upload-thumb');
+  var idx = -1;
+  for (var i = 0; i < allThumbs.length; i++) {
+    if (allThumbs[i] === thumb) { idx = i; break; }
+  }
+  if (idx < 0) return;
+  
+  var zoneId = zone.id;
+  var files = uploadedFiles.get(zoneId);
   if (!files) return;
+  
+  // Remove from array
   files.splice(idx, 1);
   uploadedFiles.set(zoneId, files);
-  const zone = document.getElementById(zoneId);
-  if (!zone) return;
-  const grid = zone.querySelector('.upload-preview-grid');
-  if (grid) {
-    const thumbs = grid.querySelectorAll('.upload-thumb');
-    if (thumbs[idx]) thumbs[idx].remove();
-    if (files.length === 0) {
-      grid.style.display = 'none';
-      zone.classList.remove('has-files');
-      const textEl = zone.querySelector('.upload-zone-text');
-      if (textEl) textEl.innerHTML = '点击或拖拽上传';
+  
+  // Remove from DOM
+  thumb.remove();
+  
+  if (files.length === 0) {
+    grid.style.display = 'none';
+    zone.classList.remove('has-files');
+    var textEl = zone.querySelector('.upload-zone-text');
+    if (textEl) {
+      var type = zone.dataset.uploadType || '';
+      if (type === 'video') textEl.innerHTML = '点击或拖拽上传视频';
+      else if (type === 'image') textEl.innerHTML = '点击或拖拽上传图片';
+      else textEl.innerHTML = '点击或拖拽上传';
     }
   }
   markSectionFilled();
@@ -2710,6 +2800,12 @@ renderSection = function() {
   _origRenderSection.apply(this, arguments);
   setTimeout(initDragDrop, 100);
 };
+
+function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + 'KB';
+  return (bytes / 1048576).toFixed(1) + 'MB';
+}
 
 function markSectionFilled() {
   const key = currentPage + '_' + currentSection;
@@ -2815,13 +2911,13 @@ function persistFormData() {
     }
   }
   try {
-    localStorage.setItem('alibaba-form-data', JSON.stringify(formData));
+    localStorage.setItem(getStorageKey('form-data'), JSON.stringify(formData));
   } catch(e) { /* quota exceeded, ignore */ }
 }
 
 function restoreFormData() {
   try {
-    const raw = localStorage.getItem('alibaba-form-data');
+    const raw = localStorage.getItem(getStorageKey('form-data'));
     if (!raw) return;
     const formData = JSON.parse(raw);
 
@@ -2850,7 +2946,7 @@ function restoreFormData() {
         if (value === 'has-files') {
           el.classList.add('has-files');
           const textEl = el.querySelector('.upload-zone-text');
-          if (textEl) textEl.textContent = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 已添加（点击继续添加）';
+          if (textEl) textEl.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 已添加（点击继续添加）';
         }
       } else if (el.classList.contains('field-table')) {
         // Table: restore cell values
@@ -2902,21 +2998,21 @@ function restoreFormData() {
 }
 
 function clearFormData() {
-  localStorage.removeItem('alibaba-form-data');
+  localStorage.removeItem(getStorageKey('form-data'));
   location.reload();
 }
 
 function dismissGuide() {
   document.getElementById('guideBanner').classList.add('hidden');
-  localStorage.setItem('alibaba-guide-seen', '1');
+  localStorage.setItem(getStorageKey('guide-seen'), '1');
 }
 
 function showSaveToast(msg) {
   const toast = document.getElementById('saveToast');
-  if (msg) toast.textContent = msg;
-  else toast.textContent = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 已自动保存';
+  if (msg) toast.innerHTML = msg;
+  else toast.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 已自动保存';
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 1800);
+  setTimeout(function() { toast.classList.remove('show'); }, 1800);
 }
 
 function saveSectionConfig() {
@@ -3116,20 +3212,20 @@ function collectFormData() {
               }
               break;
             }
-            case 'image':
-            case 'images':
-            case 'video':
-            case 'file':
-            case 'folder': {
-              const el = document.getElementById(fid);
-              if (el && el.classList.contains('has-files')) {
-                const thumbs = el.querySelectorAll('.upload-thumb');
-                fieldData.value = `已上传 ${thumbs.length} 个文件`;
-              } else {
-                fieldData.value = '未上传';
-              }
-              break;
+          case 'image':
+          case 'images':
+          case 'video':
+          case 'file':
+          case 'folder': {
+            const files = uploadedFiles.get(fid);
+            if (files && files.length > 0) {
+              const names = files.map(function(f) { return f.name + ' (' + formatFileSize(f.size) + ')'; });
+              fieldData.value = names.join(', ');
+            } else {
+              fieldData.value = '未上传';
             }
+            break;
+          }
             case 'table': {
               const table = document.getElementById(fid);
               if (table) {
@@ -3455,8 +3551,8 @@ function applyPickedColor() {
   
   // Persist both
   try { 
-    localStorage.setItem('alibaba-wangpu-color', wangpuColor); 
-    localStorage.setItem('alibaba-detail-color', detailColor); 
+    localStorage.setItem(getStorageKey('wangpu-color'), wangpuColor); 
+    localStorage.setItem(getStorageKey('detail-color'), detailColor); 
   } catch(e) {}
   
   showSaveToast('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg> ' + (currentPage === 'wangpu' ? '旺铺首页' : '商品详情') + '色调已应用');
@@ -3617,8 +3713,8 @@ function applyPresetColor(hex) {
 // Load saved backgrounds for both pages
 function loadSavedBg() {
   try {
-    const w = localStorage.getItem('alibaba-wangpu-color');
-    const d = localStorage.getItem('alibaba-detail-color');
+    const w = localStorage.getItem(getStorageKey('wangpu-color'));
+    const d = localStorage.getItem(getStorageKey('detail-color'));
     if (w) wangpuColor = w;
     if (d) detailColor = d;
     // Apply initial color based on current page
@@ -3631,7 +3727,7 @@ function loadSavedBg() {
       }
     }
     // Restore custom entry bg image if set
-    const savedEntryBg = localStorage.getItem('alibaba-entry-bg');
+    const savedEntryBg = localStorage.getItem(getStorageKey('entry-bg'));
     if (savedEntryBg) setEntryBackground(savedEntryBg);
   } catch(e) {}
 }
@@ -3655,7 +3751,7 @@ function setEntryBackground(url) {
     entry.classList.remove('has-bg-image');
     entry.style.background = 'var(--picked-bg, #f5f5f7)';
   }
-  try { localStorage.setItem('alibaba-entry-bg', url); } catch(e) {}
+  try { localStorage.setItem(getStorageKey('entry-bg'), url); } catch(e) {}
 }
 
 // ===== INIT =====
