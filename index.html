@@ -1497,12 +1497,162 @@ body::before {
   display: none;
 }
 
+/* ===== MOBILE: Menu Button ===== */
+.mobile-menu-btn {
+  display: none;
+  position: fixed;
+  top: 12px; left: 12px;
+  z-index: 500;
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+}
+.mobile-menu-btn.active { background: var(--accent); color: white; }
+
+/* ===== MOBILE: Sidebar Close Button ===== */
+.sidebar-close-btn {
+  display: none;
+  position: absolute;
+  top: 12px; right: 12px;
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+/* ===== MOBILE: Sidebar Backdrop ===== */
+.sidebar-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 899;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.sidebar-backdrop.show {
+  display: block; opacity: 1; pointer-events: auto;
+}
+
+/* ===== MOBILE: Bottom Bar ===== */
+.mobile-bottom-bar {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 700;
+  background: var(--glass-strong);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid var(--border);
+  padding: 6px 8px env(safe-area-inset-bottom, 8px);
+  justify-content: space-around;
+  align-items: center;
+}
+.mbb-item {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 2px; padding: 6px 12px;
+  border: none; background: none;
+  color: var(--text-secondary);
+  font-size: 10px; font-weight: 500;
+  cursor: pointer; border-radius: 10px;
+  min-width: 56px;
+  font-family: inherit;
+}
+.mbb-item.active { color: var(--accent); }
+.mbb-item svg { opacity: 0.7; }
+.mbb-item.active svg { opacity: 1; }
+
+/* ===== MOBILE: Drag Over ===== */
+.upload-zone.drag-over, .video-upload-zone.drag-over {
+  border-color: var(--accent) !important;
+  background: rgba(198,107,61,0.06) !important;
+  box-shadow: 0 0 0 1px var(--accent);
+  transform: scale(1.02);
+}
+.product-card-img.drag-over {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* ===== MOBILE: File Preview Icon ===== */
+.file-preview-icon {
+  width: 60px; height: 60px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card-bg);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
-  .sidebar { display: none; }
-  .main { margin-left: 0; padding: 16px; }
+  .mobile-menu-btn { display: flex; }
+  .sidebar-close-btn { display: flex; }
+  .mobile-bottom-bar { display: flex; }
+
+  .sidebar {
+    display: block !important;
+    position: fixed;
+    top: 0; left: 0;
+    z-index: 900;
+    width: 280px;
+    height: 100vh; height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.16,1,0.3,1);
+    overflow-y: auto;
+    box-shadow: var(--shadow-xl);
+    padding-top: 50px;
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+
+  .main { margin-left: 0; padding: 12px; padding-top: 56px; padding-bottom: 80px; }
+  .main-header { flex-wrap: wrap; gap: 8px; padding: 8px 0; }
+  .breadcrumb { margin-left: 0; }
+  .header-actions { flex-wrap: wrap; gap: 6px; }
+  .header-actions .btn { padding: 8px 12px; font-size: 11px; min-height: 40px; }
+  .color-trigger-btn { padding: 8px 12px; min-height: 40px; }
+
   .info-grid { grid-template-columns: 1fr; }
-  .entry-card { padding: 32px 24px; }
+  .entry-card { padding: 32px 24px; width: 92vw; }
+  .product-cards-grid { grid-template-columns: 1fr; }
+
+  .field-input, .field-textarea, .field-select, .upload-zone, .video-upload-zone {
+    font-size: 16px; min-height: 44px;
+  }
+  .field-textarea { min-height: 80px; }
+
+  .upload-zone, .video-upload-zone { padding: 24px 16px; min-height: 100px; }
+  .upload-zone-icon svg { width: 32px; height: 32px; }
+  .upload-preview-grid { gap: 6px; }
+  .upload-thumb { width: 64px; height: 64px; }
+
+  .color-popover {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px; max-width: 92vw;
+    max-height: 80vh; overflow-y: auto;
+  }
+
+  .export-modal-overlay .modal-card { width: 92vw; max-width: none; margin: 16px; max-height: 85vh; overflow-y: auto; }
+  .section-info { padding: 14px; }
+  .btn { min-height: 44px; padding: 10px 16px; font-size: 13px; }
+  .nav-item { padding: 12px 16px; min-height: 44px; }
+  .page-toggle button { min-height: 40px; font-size: 12px; }
+  .checkbox-chip { padding: 8px 14px; min-height: 40px; }
+  .guide-steps { flex-direction: column; gap: 10px; }
+  .guide-step { font-size: 11px; }
+  .field-table { display: block; overflow-x: auto; }
 }
 
 ::-webkit-scrollbar { width: 6px; }
@@ -1719,7 +1869,10 @@ body::before {
 <div class="app-layout" id="appLayout">
 
   <!-- SIDEBAR -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-close-btn" id="sidebarCloseBtn" onclick="toggleMobileMenu()" aria-label="关闭菜单">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
     <div class="sidebar-header">
       <div class="company-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="6" x2="9" y2="6.01"/><line x1="15" y1="6" x2="15" y2="6.01"/><line x1="9" y1="10" x2="9" y2="10.01"/><line x1="15" y1="10" x2="15" y2="10.01"/><line x1="9" y1="14" x2="9" y2="14.01"/><line x1="15" y1="14" x2="15" y2="14.01"/><path d="M9 18h6v4H9z"/></svg> <span id="sidebarCompany">--</span></div>
       <div class="sidebar-company-name">苏州全加亿</div>
@@ -1758,6 +1911,10 @@ body::before {
 
   <!-- MAIN -->
   <main class="main">
+    <!-- Mobile hamburger -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileMenu()" aria-label="菜单">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
     <div class="main-header">
       <div class="breadcrumb" id="breadcrumb">
         <span id="currentSectionName">店招</span>
@@ -2205,7 +2362,8 @@ function renderSection() {
         </div>
       </div>
       <div style="margin-top:16px;">
-        <div class="upload-zone" onclick="simulateUpload(this)">
+        <div class="upload-zone" data-upload-type="generic">
+        <input type="file" hidden multiple onchange="handleFileSelect(this,'generic')">
           <div class="upload-zone-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
           <div class="upload-zone-text">点击上传素材 或拖拽到此处</div>
           <div class="upload-zone-meta">${s.hint}</div>
@@ -2331,35 +2489,40 @@ function renderFormField(inp, idx) {
         h += `</select>`;
       }
       break;
-    case 'image':
-      h += `<div class="upload-zone" onclick="simulateUpload(this,'image')" id="${fid}">
+case 'image':
+      h += `<div class="upload-zone" id="${fid}" data-upload-type="image">
+        <input type="file" hidden accept="image/*" onchange="handleFileSelect(this,'image')">
         <div class="upload-zone-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
-        <div class="upload-zone-text">点击上传 ${inp.label}</div>
+        <div class="upload-zone-text">点击或拖拽上传 ${inp.label}</div>
         <div class="upload-zone-meta">${inp.hint||'支持 JPG / PNG / SVG'}</div>
-        <div class="upload-preview-grid" style="display:none;"></div>
+        <div class="upload-preview-grid"></div>
       </div>`;
       break;
-    case 'images':
-      h += `<div class="upload-zone" onclick="simulateUpload(this,'images')" id="${fid}">
+case 'images':
+      h += `<div class="upload-zone" id="${fid}" data-upload-type="images">
+        <input type="file" hidden accept="image/*" multiple onchange="handleFileSelect(this,'images')">
         <div class="upload-zone-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
-        <div class="upload-zone-text">点击上传 ${inp.label}</div>
+        <div class="upload-zone-text">点击或拖拽上传 ${inp.label}</div>
         <div class="upload-zone-meta">${inp.hint||'支持批量上传' + (inp.max ? '，最多'+inp.max+'张' : '')}</div>
         <div class="upload-preview-grid"></div>
       </div>`;
       break;
-    case 'video':
-      h += `<div class="video-upload-zone" onclick="simulateUpload(this,'video')" id="${fid}">
+case 'video':
+      h += `<div class="video-upload-zone" id="${fid}" data-upload-type="video">
+        <input type="file" hidden accept="video/*" onchange="handleFileSelect(this,'video')">
         <div class="video-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
-        <div class="upload-zone-text">点击上传视频</div>
+        <div class="upload-zone-text">点击或拖拽上传视频</div>
         <div class="upload-zone-meta">${inp.hint||'建议 MP4 格式，≤60s'}</div>
+        <div class="upload-preview-grid"></div>
       </div>`;
       break;
-    case 'file':
+case 'file':
     case 'folder':
-      h += `<div class="upload-zone" onclick="simulateUpload(this,'folder')" id="${fid}">
+      h += `<div class="upload-zone" id="${fid}" data-upload-type="${inp.type}">
+        <input type="file" hidden ${inp.type==='folder'?'webkitdirectory':''} multiple onchange="handleFileSelect(this,'${inp.type}')">
         <div class="upload-zone-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
-        <div class="upload-zone-text">点击上传${inp.type==='folder'?'文件夹':'文件'}</div>
-        <div class="upload-zone-meta">${inp.hint||'支持拖拽文件夹到此处'}</div>
+        <div class="upload-zone-text">点击或拖拽上传${inp.type==='folder'?'文件夹':'文件'}</div>
+        <div class="upload-zone-meta">${inp.hint||'支持拖拽' + (inp.type==='folder'?'文件夹':'文件') + '到此处'}</div>
         <div class="upload-preview-grid"></div>
       </div>`;
       break;
@@ -2384,8 +2547,9 @@ function renderFormField(inp, idx) {
       for (let i = 0; i < count; i++) {
         const cid = `${fid}_${i}`;
         h += `<div class="product-card">
-          <div class="product-card-img" id="${cid}_img" onclick="simulateProductUpload(this)" title="点击上传产品主图">
-            <span class="pc-img-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span>
+<div class="product-card-img" id="${cid}_img" title="点击或拖拽上传产品主图">
+            <input type="file" hidden accept="image/*" onchange="handleProductImage(this)">
+            <span class="pc-img-icon"><svg
             <span class="pc-img-text">产品 ${i+1} 主图<br>建议 800×800px</span>
           </div>
           <span class="pc-label">产品名称</span>
@@ -2418,44 +2582,134 @@ function addTableRow(tableId) {
   autoSave();
 }
 
-function simulateUpload(el, type) {
-  el.classList.add('has-files');
+// ===== REAL FILE UPLOAD =====
+const uploadedFiles = new Map(); // key: field_id, value: [{name, size, type, dataURL}]
+
+function handleFileSelect(input, type) {
+  const el = input.parentElement;
+  handleFiles(el, input.files, type);
+  input.value = '';
+}
+
+function handleFiles(el, files, type) {
+  const zoneId = el.id;
+  const existing = uploadedFiles.get(zoneId) || [];
   const grid = el.querySelector('.upload-preview-grid');
+
+  Array.from(files).forEach(file => {
+    if (type === 'image') existing.length = 0; // single image: clear old
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const dataURL = e.target.result;
+      const isImage = file.type.startsWith('image/');
+      existing.push({ name: file.name, size: file.size, type: file.type, dataURL: dataURL });
+      uploadedFiles.set(zoneId, existing);
+
+      if (grid) {
+        const thumb = document.createElement('div');
+        thumb.className = 'upload-thumb';
+        const shortName = file.name.length > 14 ? file.name.slice(0,12) + '..' : file.name;
+        if (isImage) {
+          thumb.innerHTML = '<img src="' + dataURL + '" alt=""><div class="thumb-remove" onclick="event.stopPropagation();removeUploadedFile(\'' + zoneId + '\',' + (existing.length-1) + ');">x</div><div class="thumb-label">' + shortName + '</div>';
+        } else if (file.type.startsWith('video/')) {
+          thumb.innerHTML = '<video src="' + dataURL + '" muted></video><div class="thumb-remove" onclick="event.stopPropagation();removeUploadedFile(\'' + zoneId + '\',' + (existing.length-1) + ');">x</div><div class="thumb-label"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg> ' + shortName + '</div>';
+        } else {
+          thumb.innerHTML = '<div class="file-preview-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="thumb-remove" onclick="event.stopPropagation();removeUploadedFile(\'' + zoneId + '\',' + (existing.length-1) + ');">x</div><div class="thumb-label">' + shortName + '</div>';
+        }
+        grid.appendChild(thumb);
+        grid.style.display = 'flex';
+      }
+
+      if (type === 'image') {
+        const textEl = el.querySelector('.upload-zone-text');
+        if (textEl) textEl.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 已上传（点击更换）';
+      }
+      el.classList.add('has-files');
+      markSectionFilled();
+      autoSave();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function removeUploadedFile(zoneId, idx) {
+  const files = uploadedFiles.get(zoneId);
+  if (!files) return;
+  files.splice(idx, 1);
+  uploadedFiles.set(zoneId, files);
+  const zone = document.getElementById(zoneId);
+  if (!zone) return;
+  const grid = zone.querySelector('.upload-preview-grid');
   if (grid) {
-    const demoImgs = [
-      'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=120&h=120&fit=crop',
-      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=120&h=120&fit=crop',
-      'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=120&h=120&fit=crop',
-    ];
-    const imgUrl = demoImgs[Math.floor(Math.random() * demoImgs.length)];
-    const thumb = document.createElement('div');
-    thumb.className = 'upload-thumb';
-    thumb.innerHTML = `<img src="${imgUrl}" alt=""><div class="thumb-remove" onclick="event.stopPropagation();this.parentElement.remove();autoSave();">×</div><div class="thumb-label">${type==='video'?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg> 视频':type==='folder'?'<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 文件':'图片'}</div>`;
-    grid.appendChild(thumb);
+    const thumbs = grid.querySelectorAll('.upload-thumb');
+    if (thumbs[idx]) thumbs[idx].remove();
+    if (files.length === 0) {
+      grid.style.display = 'none';
+      zone.classList.remove('has-files');
+      const textEl = zone.querySelector('.upload-zone-text');
+      if (textEl) textEl.innerHTML = '点击或拖拽上传';
+    }
   }
-  const textEl = el.querySelector('.upload-zone-text');
-  if (textEl) textEl.textContent = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 已添加（点击继续添加）';
   markSectionFilled();
   autoSave();
 }
 
-// Product card image upload (simulated demo)
-function simulateProductUpload(el) {
-  el.classList.add('has-image');
-  // Replace placeholder with a demo image
-  const demoImgs = [
-    'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=300&h=300&fit=crop',
-    'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=300&h=300&fit=crop',
-    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=300&h=300&fit=crop',
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=300&h=300&fit=crop',
-    'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=300&h=300&fit=crop',
-    'https://images.unsplash.com/photo-1563770660941-20978e870e26?w=300&h=300&fit=crop',
-  ];
-  const imgUrl = demoImgs[Math.floor(Math.random() * demoImgs.length)];
-  el.innerHTML = `<img src="${imgUrl}" alt="Product">`;
-  markSectionFilled();
-  autoSave();
+// Product card image upload (real)
+function handleProductImage(input) {
+  const card = input.parentElement;
+  const file = input.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    card.classList.add('has-image');
+    card.innerHTML = '<img src="' + e.target.result + '" alt="Product" style="width:100%;height:100%;object-fit:cover;">' +
+      '<input type="file" hidden accept="image/*" onchange="handleProductImage(this)" title="点击更换">';
+    uploadedFiles.set(card.id, [{ name: file.name, size: file.size, type: file.type, dataURL: e.target.result }]);
+    markSectionFilled();
+    autoSave();
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
 }
+
+// Drag-and-drop init for all upload zones
+function initDragDrop() {
+  document.querySelectorAll('.upload-zone[data-upload-type], .video-upload-zone, .product-card-img').forEach(function(zone) {
+    if (zone.dataset.dndInit) return;
+    zone.dataset.dndInit = '1';
+
+    zone.addEventListener('dragover', function(e) {
+      e.preventDefault(); e.stopPropagation();
+      this.classList.add('drag-over');
+    });
+    zone.addEventListener('dragleave', function(e) {
+      e.preventDefault(); e.stopPropagation();
+      this.classList.remove('drag-over');
+    });
+    zone.addEventListener('drop', function(e) {
+      e.preventDefault(); e.stopPropagation();
+      this.classList.remove('drag-over');
+      var input = this.querySelector('input[type=file]');
+      if (!input) return;
+      if (this.classList.contains('product-card-img')) {
+        var dt = new DataTransfer();
+        dt.items.add(e.dataTransfer.files[0]);
+        input.files = dt.files;
+        handleProductImage(input);
+      } else {
+        input.files = e.dataTransfer.files;
+        handleFileSelect(input, this.dataset.uploadType || 'generic');
+      }
+    });
+  });
+}
+
+// Re-init drag-drop after each section render
+var _origRenderSection = renderSection;
+renderSection = function() {
+  _origRenderSection.apply(this, arguments);
+  setTimeout(initDragDrop, 100);
+};
 
 function markSectionFilled() {
   const key = currentPage + '_' + currentSection;
@@ -2670,6 +2924,25 @@ function saveSectionConfig() {
 }
 
 // ===== NAVIGATION =====
+// ===== MOBILE MENU TOGGLE =====
+function toggleMobileMenu() {
+  var sidebar = document.getElementById('sidebar');
+  var backdrop = document.getElementById('sidebarBackdrop');
+  var btn = document.getElementById('mobileMenuBtn');
+  var isOpen = sidebar.classList.contains('mobile-open');
+  if (isOpen) {
+    sidebar.classList.remove('mobile-open');
+    backdrop.classList.remove('show');
+    btn.classList.remove('active');
+    document.body.style.overflow = '';
+  } else {
+    sidebar.classList.add('mobile-open');
+    backdrop.classList.add('show');
+    btn.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
 function switchPage(page) {
   currentPage = page;
   const firstKey = Object.keys(sectionsData[page])[0];
@@ -2696,6 +2969,12 @@ function switchPage(page) {
   
   updateProgress();
   renderSection();
+  // Close mobile menu and update bottom bar
+  if (window.innerWidth <= 768 && document.getElementById('sidebar').classList.contains('mobile-open')) {
+    toggleMobileMenu();
+  }
+  document.getElementById('mbbWangpu').classList.toggle('active', page === 'wangpu');
+  document.getElementById('mbbDetail').classList.toggle('active', page === 'detail');
 }
 
 function selectSection(page, key, el) {
@@ -2707,6 +2986,10 @@ function selectSection(page, key, el) {
   el.classList.add('active');
   
   renderSection();
+  // Close mobile menu after selecting
+  if (window.innerWidth <= 768 && document.getElementById('sidebar').classList.contains('mobile-open')) {
+    toggleMobileMenu();
+  }
 }
 
 // ===== PROGRESS =====
@@ -3415,5 +3698,29 @@ if ('serviceWorker' in navigator) {
     .catch(() => {}); // fail silently if not on a server
 }
 </script>
+
+<!-- Mobile bottom action bar -->
+<div class="mobile-bottom-bar" id="mobileBottomBar">
+  <button class="mbb-item active" id="mbbWangpu" onclick="switchPage('wangpu')">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span>旺铺</span>
+  </button>
+  <button class="mbb-item" id="mbbDetail" onclick="switchPage('detail')">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+    <span>详情</span>
+  </button>
+  <button class="mbb-item" onclick="showPreview()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    <span>预览</span>
+  </button>
+  <button class="mbb-item" onclick="showExport()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <span>导出</span>
+  </button>
+</div>
+
+<!-- Mobile sidebar overlay backdrop -->
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleMobileMenu()"></div>
+
 </body>
 </html>
