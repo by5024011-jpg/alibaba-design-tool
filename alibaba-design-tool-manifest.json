@@ -1,0 +1,18 @@
+{
+  "name": "阿里国际站 · 设计需求工具",
+  "short_name": "设计需求工具",
+  "description": "阿里巴巴国际站旺铺首页 + 商品详情页设计需求填写工具",
+  "start_url": "./alibaba-design-tool-prototype-v2.html",
+  "display": "standalone",
+  "background_color": "#f5f5f7",
+  "theme_color": "#0071e3",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%230071e3'/%3E%3Ctext x='256' y='320' font-size='300' text-anchor='middle' fill='white' font-family='system-ui'%3E🎨%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
