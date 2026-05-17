@@ -4481,7 +4481,7 @@ function showExport() {
         <div class="export-actions">
           <button class="export-btn export-btn-assets" onclick="doAssetPackageExport()">
             <span class="export-btn-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg></span>
-            <div><strong>下载完整素材包</strong><br><small>一个 ZIP 压缩包：含需求表、CSV 清单、表单数据，以及按文件夹整理好的原始素材</small></div>
+            <div><strong>下载完整素材包</strong><br><small>一个 ZIP 压缩包：按页面和模块分文件夹，每个模块内含需求信息 HTML 和对应素材</small></div>
           </button>
         </div>
         <div style="margin-top:12px;text-align:center;">
@@ -5080,6 +5080,80 @@ function generateAssetPackageHTML(data, items) {
   </div></body></html>`;
 }
 
+function generateSectionPackageHTML(data, sec, items) {
+  const now = new Date().toLocaleString('zh-CN');
+  const sectionFolder = getSectionPackageFolder(sec, sec.num);
+  const sectionItems = items.filter(function(item) {
+    return item.page === sec.page && item.section === sec.name;
+  });
+
+  function relativeAssetPath(item) {
+    const path = item.packagePath || item.dataURL || '';
+    const prefix = sectionFolder + '/';
+    return path.indexOf(prefix) === 0 ? path.slice(prefix.length) : path;
+  }
+
+  function renderAssetCard(item) {
+    const href = relativeAssetPath(item);
+    const isImg = isSafeImageDataURL(item.dataURL) || /\.(png|jpe?g|webp|gif)$/i.test(href || '');
+    const preview = isImg
+      ? `<img src="${safeAttr(href)}" alt="${safeAttr(item.name)}">`
+      : '<div class="file-chip">文件</div>';
+    return `<div class="asset-card">
+      ${preview}
+      <div class="asset-main">
+        <div class="asset-name">${safeText(item.name)}</div>
+        <div class="asset-sub">${safeText(item.field)} · ${safeText(item.type || '未知类型')} · ${formatFileSize(item.size)}</div>
+        <a download="${safeAttr(item.name)}" href="${safeAttr(href)}">打开/下载素材</a>
+      </div>
+    </div>`;
+  }
+
+  function assetLinks(fieldLabel) {
+    const matched = sectionItems.filter(function(item) { return item.field === fieldLabel; });
+    if (!matched.length) return '';
+    return '<div class="asset-grid">' + matched.map(renderAssetCard).join('') + '</div>';
+  }
+
+  const fieldsHtml = sec.fields.map(function(field) {
+    const value = field.value && field.value !== '未上传' ? field.value : '';
+    return `<div class="field-row">
+      <div class="field-key">${safeText(field.label)}</div>
+      <div class="field-val">${value ? safeText(value).split(String.fromCharCode(10)).join('<br>') : '<span class="empty">未填写 / 未上传</span>'}
+        ${assetLinks(field.label)}
+      </div>
+    </div>`;
+  }).join('');
+
+  const allAssetsHtml = sectionItems.length
+    ? '<div class="asset-grid all-assets">' + sectionItems.map(renderAssetCard).join('') + '</div>'
+    : '<p class="empty">本模块暂无上传文件。</p>';
+
+  return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>${safeText(companyName)} - ${safeText(sec.name)}需求信息</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;padding:28px;background:#f6f8fb;color:#1f2937;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,"Microsoft YaHei",sans-serif}
+    .wrap{max-width:1060px;margin:0 auto}.top{padding:22px 24px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 10px 28px rgba(15,23,42,.06)}
+    .crumb{font-size:13px;color:#64748b;margin-bottom:8px}.top h1{margin:0;font-size:26px;color:#0f172a}.meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.meta span{font-size:12px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:999px;padding:6px 10px}
+    .panel{margin-top:18px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px;box-shadow:0 10px 28px rgba(15,23,42,.05)}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.info{background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:14px;line-height:1.7}.info strong{display:block;margin-bottom:6px;color:#334155}
+    .field-row{display:grid;grid-template-columns:180px 1fr;gap:18px;padding:14px 0;border-top:1px solid #edf2f7}.field-row:first-child{border-top:0}.field-key{font-weight:700;color:#475569}.field-val{line-height:1.65;word-break:break-word}.empty{color:#94a3b8;font-style:italic}
+    .asset-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:10px}.asset-card{display:flex;gap:12px;padding:10px;border:1px solid #e5e7eb;border-radius:12px;background:#fbfdff}.asset-card img,.file-chip{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid #e5e7eb;background:#f1f5f9;flex-shrink:0}.file-chip{display:flex;align-items:center;justify-content:center;color:#64748b;font-size:13px}.asset-main{min-width:0}.asset-name{font-weight:700;word-break:break-all}.asset-sub{font-size:12px;color:#64748b;margin:4px 0 8px}a{display:inline-flex;padding:7px 11px;border-radius:8px;background:#1677ff;color:#fff;text-decoration:none;font-size:13px;font-weight:700}
+    h2{font-size:18px;margin:0 0 12px;color:#0f172a}@media(max-width:720px){body{padding:14px}.two{grid-template-columns:1fr}.field-row{grid-template-columns:1fr;gap:6px}}
+  </style></head><body><div class="wrap">
+    <header class="top">
+      <div class="crumb">${safeText(sec.page)} / 第 ${String(sec.num).padStart(2, '0')} 模块</div>
+      <h1>${safeText(sec.name)}需求信息</h1>
+      <div class="meta"><span>客户：${safeText(companyName)}</span><span>导出时间：${safeText(now)}</span><span>本模块文件：${sectionItems.length} 个</span></div>
+    </header>
+    <section class="panel two">
+      <div class="info"><strong>需要提供</strong>${safeText(sec.materials).split(String.fromCharCode(10)).join('<br>')}</div>
+      <div class="info"><strong>买家关注</strong>${safeText(sec.concerns).split(String.fromCharCode(10)).join('<br>')}</div>
+    </section>
+    <section class="panel"><h2>填写内容</h2>${fieldsHtml || '<p class="empty">本模块暂无表单字段。</p>'}</section>
+    <section class="panel"><h2>本模块全部文件</h2>${allAssetsHtml}</section>
+  </div></body></html>`;
+}
+
 function sanitizeZipSegment(name, fallback) {
   var value = String(name || fallback || '未命名')
     .replace(/[\\/:*?"<>|\x00-\x1f]+/g, '_')
@@ -5135,19 +5209,34 @@ function dataURLToBytes(dataURL) {
   return bytes;
 }
 
+function getSectionPackageFolder(sectionLike, fallbackNum) {
+  var pageDir = sanitizeZipSegment(sectionLike && sectionLike.page, '页面');
+  var sectionName = sectionLike && (sectionLike.name || sectionLike.section);
+  var sectionNum = sectionLike && sectionLike.num != null ? sectionLike.num : fallbackNum;
+  var secDir = String(sectionNum || 1).padStart(2, '0') + '-' + sanitizeZipSegment(sectionName, '区块');
+  return '04-素材文件/' + pageDir + '/' + secDir;
+}
+
+function getSectionInfoPath(sec) {
+  return getSectionPackageFolder(sec, sec.num) + '/' + sanitizeZipSegment(sec.name + '需求信息', '需求信息') + '.html';
+}
+
 function makePackageItems(data, items) {
   var used = {};
   return items.map(function(item, index) {
     var section = data.sections.find(function(sec) {
       return sec.page === item.page && sec.name === item.section;
     });
-    var pageDir = sanitizeZipSegment(item.page, '页面');
-    var secDir = String(section ? section.num : index + 1).padStart(2, '0') + '-' + sanitizeZipSegment(item.section, '区块');
+    var sectionFolder = getSectionPackageFolder({
+      page: item.page,
+      name: item.section,
+      num: section ? section.num : index + 1
+    }, index + 1);
     var fieldDir = item.supplement
       ? sanitizeZipSegment(item.section + '补充文件', '补充文件')
       : sanitizeZipSegment(item.field, '字段');
     var fileName = String(index + 1).padStart(3, '0') + '-' + ensureFileExtension(item.name, item.type, item.dataURL);
-    var path = '04-素材文件/' + pageDir + '/' + secDir + '/' + fieldDir + '/' + fileName;
+    var path = sectionFolder + '/' + fieldDir + '/' + fileName;
     var base = path;
     var n = 2;
     while (used[path.toLowerCase()]) {
@@ -5157,42 +5246,10 @@ function makePackageItems(data, items) {
     used[path.toLowerCase()] = true;
     return Object.assign({}, item, {
       packagePath: path,
-      packageFolder: '04-素材文件/' + pageDir + '/' + secDir + '/' + fieldDir
+      sectionFolder: sectionFolder,
+      packageFolder: sectionFolder + '/' + fieldDir
     });
   });
-}
-
-function generateAssetPackageCSV(data, items) {
-  var rows = [['页面', '区块编号', '区块名称', '字段名称', '填写内容', '素材路径']];
-  data.sections.forEach(function(sec) {
-    sec.fields.forEach(function(field) {
-      var matched = items.filter(function(item) {
-        return item.page === sec.page && item.section === sec.name && item.field === field.label;
-      }).map(function(item) { return item.packagePath; }).join('\n');
-      rows.push([sec.page, String(sec.num).padStart(2, '0'), sec.name, field.label, field.value || '', matched]);
-    });
-  });
-  function cell(value) {
-    return '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"';
-  }
-  return '\uFEFF' + rows.map(function(row) { return row.map(cell).join(','); }).join('\n');
-}
-
-function generatePackageReadme(data, items) {
-  return [
-    companyName + ' - 设计素材包',
-    '',
-    '使用方式：',
-    '1. 先打开 01-设计需求表.html 查看客户填写的完整需求。',
-    '2. 需要素材时，按表单中的链接打开对应文件，或直接进入 04-素材文件 文件夹查找。',
-    '3. 素材文件夹按 旺铺首页 / 商品详情、区块、字段 分好类，方便美工制作和选用。',
-    '4. 02-素材清单.csv 可用 Excel 打开，用于快速核对字段和素材路径。',
-    '',
-    '区块数量：' + data.totalSections,
-    '已填写区块：' + data.filledSections,
-    '素材文件：' + items.length,
-    '导出时间：' + new Date().toLocaleString('zh-CN')
-  ].join('\n');
 }
 
 var ZIP_CRC_TABLE = null;
@@ -5320,33 +5377,12 @@ async function doAssetPackageExport() {
   const data = collectFormData();
   const rawItems = await collectAssetPackageItems();
   const items = makePackageItems(data, rawItems);
-  const html = generateAssetPackageHTML(data, items);
-  const csv = generateAssetPackageCSV(data, items);
-  const payload = {
-    companyName: companyName,
-    exportedAt: new Date().toISOString(),
-    totalSections: data.totalSections,
-    filledSections: data.filledSections,
-    assets: items.map(function(item) {
-      return {
-        page: item.page,
-        section: item.section,
-        field: item.field,
-        name: item.name,
-        type: item.type,
-        size: item.size,
-        packagePath: item.packagePath
-      };
-    }),
-    sections: data.sections
-  };
-
-  const entries = [
-    { path: '00-使用说明.txt', data: generatePackageReadme(data, items) },
-    { path: '01-设计需求表.html', data: html },
-    { path: '02-素材清单.csv', data: csv },
-    { path: '03-表单数据.json', data: JSON.stringify(payload, null, 2) }
-  ];
+  const entries = data.sections.map(function(sec) {
+    return {
+      path: getSectionInfoPath(sec),
+      data: generateSectionPackageHTML(data, sec, items)
+    };
+  });
   items.forEach(function(item) {
     entries.push({ path: item.packagePath, data: dataURLToBytes(item.dataURL) });
   });
