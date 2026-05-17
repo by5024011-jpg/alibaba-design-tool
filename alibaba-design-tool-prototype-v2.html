@@ -2939,6 +2939,9 @@ let adminRefImages = {}; // { 'wangpu_dianzhao': ['<svg width="16" height="16" v
 const ADMIN_PASSWORD_KEY = 'alibaba-admin-password-v2';
 const SAFE_IMAGE_MIME_RE = /^image\/(?:png|jpe?g|gif|webp)$/i;
 const SAFE_IMAGE_DATA_RE = /^data:image\/(?:png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i;
+const SUPPLEMENT_FILE_ACCEPT = '.doc,.docx,.xls,.xlsx,.pdf,.ppt,.pptx,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/csv,application/csv';
+const SUPPLEMENT_FILE_MIME_RE = /^(application\/pdf|application\/msword|application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document|application\/vnd\.ms-excel|application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet|application\/vnd\.ms-powerpoint|application\/vnd\.openxmlformats-officedocument\.presentationml\.presentation|text\/csv|application\/csv)$/i;
+const SUPPLEMENT_FILE_EXT_RE = /\.(docx?|xlsx?|pdf|pptx?|csv)$/i;
 
 function safeText(value) {
   return escapeHTML(value == null ? '' : String(value));
@@ -2985,6 +2988,16 @@ function isAllowedImageFile(file) {
   if (!file) return false;
   if (SAFE_IMAGE_MIME_RE.test(file.type || '')) return true;
   return /\.(png|jpe?g|gif|webp)$/i.test(file.name || '');
+}
+
+function isAllowedSupplementFile(file) {
+  if (!file) return false;
+  if (SUPPLEMENT_FILE_MIME_RE.test(file.type || '')) return true;
+  return SUPPLEMENT_FILE_EXT_RE.test(file.name || '');
+}
+
+function isSupplementUploadLabel(label) {
+  return /补充文件|补充素材/.test(label || '');
 }
 
 function isSafeImageDataURL(url) {
@@ -3395,8 +3408,8 @@ function renderSection() {
       inputs.forEach((inp, idx) => {
         html += renderFormField(inp, idx);
       });
-      // Universal folder/file upload for every section
-      html += renderFormField({ type:'folder', label:'补充素材（可选）', hint:'拖拽文件夹或任意格式文件到此处' }, 'extra');
+      // Universal supplementary document upload for every section
+      html += renderFormField({ type:'folder', label:'补充文件（可选）', hint:'仅支持 Word、Excel、PDF、PPT、CSV，可多选或拖拽上传' }, 'extra');
       html += `</div>`;
     } else {
       // Fallback: simple form for sections without inputs defined
@@ -3423,7 +3436,7 @@ function renderSection() {
         <div class="field-label">补充说明</div>
         <textarea class="field-textarea" placeholder="如有特殊要求请在此说明..." oninput="autoSave()"></textarea>
       </div>
-      ${renderFormField({ type:'folder', label:'补充素材（可选）', hint:'拖拽文件夹或任意格式文件到此处' }, 'extra')}
+      ${renderFormField({ type:'folder', label:'补充文件（可选）', hint:'仅支持 Word、Excel、PDF、PPT、CSV，可多选或拖拽上传' }, 'extra')}
       `;
     }
   }
@@ -3575,14 +3588,19 @@ function renderFormField(inp, idx) {
       </div>`;
       break;
     case 'file':
-    case 'folder':
-      h += `<div class="upload-zone" onclick="simulateUpload(this,'folder')" id="${fid}">
+    case 'folder': {
+      const isSupplementUpload = isSupplementUploadLabel(inp.label);
+      const uploadType = isSupplementUpload ? 'supplement' : (inp.type === 'folder' ? 'folder' : 'file');
+      const uploadText = isSupplementUpload ? '点击上传补充文件' : `点击上传${inp.type==='folder'?'文件夹':'文件'}`;
+      const uploadMeta = isSupplementUpload ? (inp.hint || '仅支持 Word、Excel、PDF、PPT、CSV') : (inp.hint || '支持拖拽文件夹到此处');
+      h += `<div class="upload-zone" onclick="simulateUpload(this,'${uploadType}')" id="${fid}" data-upload-kind="${uploadType}">
         <div class="upload-zone-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
-        <div class="upload-zone-text">点击上传${inp.type==='folder'?'文件夹':'文件'}</div>
-        <div class="upload-zone-meta">${safeText(inp.hint||'支持拖拽文件夹到此处')}</div>
+        <div class="upload-zone-text">${safeText(uploadText)}</div>
+        <div class="upload-zone-meta">${safeText(uploadMeta)}</div>
         <div class="upload-preview-grid"></div>
       </div>`;
       break;
+    }
     case 'table': {
       const cols = inp.columns || ['列1','列2','列3'];
       h += `<table class="field-table" id="${fid}"><thead><tr>`;
@@ -3732,18 +3750,31 @@ function handleFileSelect(zoneEl, type, files) {
   
   var totalNew = files.length;
   var processed = 0;
+
+  function finishOneFile() {
+    processed++;
+    if (processed >= totalNew) {
+      if ((uploadedFiles[fid] || []).length > 0) markSectionFilled();
+      autoSave();
+    }
+  }
   
   Array.from(files).forEach(function(file) {
     if ((type === 'image' || type === 'images') && !isAllowedImageFile(file)) {
-      processed++;
+      finishOneFile();
       showSaveToast('图片仅支持 JPG、PNG、WEBP、GIF，已跳过不安全格式');
+      return;
+    }
+    if (type === 'supplement' && !isAllowedSupplementFile(file)) {
+      finishOneFile();
+      showSaveToast('补充文件仅支持 Word、Excel、PDF、PPT、CSV，已跳过不支持的文件');
       return;
     }
     var reader = new FileReader();
     reader.onload = function(e) {
       var dataURL = e.target.result;
       if ((type === 'image' || type === 'images') && !isSafeImageDataURL(dataURL)) {
-        processed++;
+        finishOneFile();
         showSaveToast('图片内容不安全或格式异常，已阻止载入');
         return;
       }
@@ -3813,11 +3844,7 @@ function handleFileSelect(zoneEl, type, files) {
         console.log('[UPLOAD] thumb appended, grid children=' + grid.children.length);
       }
       
-      processed++;
-      if (processed >= totalNew) {
-        markSectionFilled();
-        autoSave();
-      }
+      finishOneFile();
     };
     reader.readAsDataURL(file);
   });
@@ -3864,6 +3891,9 @@ function simulateUpload(el, type) {
     input.multiple = true;
   } else if (type === 'video') {
     input.accept = 'video/*,.zip,.rar,.7z,.tar.gz,.gz';
+  } else if (type === 'supplement') {
+    input.accept = SUPPLEMENT_FILE_ACCEPT;
+    input.multiple = true;
   } else if (type === 'file' || type === 'folder') {
     input.accept = '*/*,.zip,.rar,.7z,.tar.gz,.gz';
   } else {
@@ -3908,7 +3938,7 @@ function initDragDrop() {
         if (zone.classList.contains('product-card-img')) {
           handleProductImageUpload(zone, files[0]);
         } else {
-          handleFileSelect(zone, 'file', files);
+          handleFileSelect(zone, zone.dataset.uploadKind || 'file', files);
         }
       }
     });
@@ -4641,7 +4671,7 @@ function collectFormData() {
       const extraFid = `field_${pageKey}_${secKey}_extra`;
       const extraFiles = getUploadFilesForExport(extraFid, savedFormData);
       const extraField = {
-        label: '补充素材（可选）',
+        label: '补充文件（可选）',
         type: 'folder',
         value: formatUploadFieldValue(extraFiles),
         _files: extraFiles
@@ -4877,7 +4907,7 @@ async function collectAssetPackageItems() {
   const items = [];
   const pages = { wangpu: '旺铺首页', detail: '商品详情' };
 
-  async function addUploadFiles(pageKey, pageName, secKey, sec, fieldLabel, fid) {
+  async function addUploadFiles(pageKey, pageName, secKey, sec, fieldLabel, fid, options) {
     const files = getUploadFilesForExport(fid, savedFormData);
     for (let i = 0; i < files.length; i++) {
       const f = files[i];
@@ -4894,7 +4924,8 @@ async function collectAssetPackageItems() {
         name: f.name || `${pageKey}_${secKey}_${i + 1}`,
         size: f.size || 0,
         type: f.type || '',
-        dataURL: dataURL
+        dataURL: dataURL,
+        supplement: !!(options && options.supplement)
       });
     }
   }
@@ -4926,7 +4957,7 @@ async function collectAssetPackageItems() {
           }
         }
       }
-      await addUploadFiles(pageKey, pageName, secKey, sec, '补充素材（可选）', `field_${pageKey}_${secKey}_extra`);
+      await addUploadFiles(pageKey, pageName, secKey, sec, '补充文件（可选）', `field_${pageKey}_${secKey}_extra`, { supplement: true });
     }
   }
   return items;
@@ -5074,10 +5105,13 @@ function getExtensionFromType(type, dataURL) {
     'application/pdf': '.pdf',
     'text/plain': '.txt',
     'text/csv': '.csv',
+    'application/csv': '.csv',
     'application/vnd.ms-excel': '.xls',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
     'application/msword': '.doc',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/vnd.ms-powerpoint': '.ppt',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
     'application/zip': '.zip',
     'application/x-zip-compressed': '.zip'
   };
@@ -5109,7 +5143,9 @@ function makePackageItems(data, items) {
     });
     var pageDir = sanitizeZipSegment(item.page, '页面');
     var secDir = String(section ? section.num : index + 1).padStart(2, '0') + '-' + sanitizeZipSegment(item.section, '区块');
-    var fieldDir = sanitizeZipSegment(item.field, '字段');
+    var fieldDir = item.supplement
+      ? sanitizeZipSegment(item.section + '补充文件', '补充文件')
+      : sanitizeZipSegment(item.field, '字段');
     var fileName = String(index + 1).padStart(3, '0') + '-' + ensureFileExtension(item.name, item.type, item.dataURL);
     var path = '04-素材文件/' + pageDir + '/' + secDir + '/' + fieldDir + '/' + fileName;
     var base = path;

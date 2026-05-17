@@ -1,6 +1,6 @@
 // Service Worker for Alibaba Design Tool
 // Caches the main HTML + manifest for offline use
-const CACHE = 'alibaba-design-v2';
+const CACHE = 'alibaba-design-v3';
 const FILES = [
   './',
   './index.html',
