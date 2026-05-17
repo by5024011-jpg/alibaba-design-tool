@@ -1,15 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <title>阿里国际站产品视觉设计工具</title>
-
-<meta name="description" content="面向阿里国际站旺铺首页详情页视觉设计辅助工具，支持快速生成高转化B2B视觉方案。">
-
-<meta property="og:title" content="阿里国际站产品视觉设计工具">
-<meta property="og:description" content="快速生成阿里国际站主图、副图、详情页视觉设计方案，适合B2B产品运营使用。">
-<meta property="og:image" content="https://by5024011-jpg.github.io/alibaba-design-tool/cover.png">
-<meta property="og:url" content="https://by5024011-jpg.github.io/alibaba-design-tool/">
-<meta property="og:type" content="website">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data: blob: https:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
@@ -4460,7 +4451,7 @@ function showExport() {
         <div class="export-actions">
           <button class="export-btn export-btn-assets" onclick="doAssetPackageExport()">
             <span class="export-btn-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg></span>
-            <div><strong>下载完整素材包</strong><br><small>一个 HTML 文件，整合旺铺首页、商品详情、填写内容和上传素材</small></div>
+            <div><strong>下载完整素材包</strong><br><small>一个 ZIP 压缩包：含需求表、CSV 清单、表单数据，以及按文件夹整理好的原始素材</small></div>
           </button>
         </div>
         <div style="margin-top:12px;text-align:center;">
@@ -4953,15 +4944,17 @@ function generateAssetPackageHTML(data, items) {
     });
     if (!matched.length) return '';
     return '<div class="asset-links">' + matched.map(function(item) {
-      const preview = isSafeImageDataURL(item.dataURL)
-        ? `<img src="${safeAttr(item.dataURL)}" alt="${safeAttr(item.name)}">`
+      const assetHref = item.packagePath || item.dataURL;
+      const isImageAsset = isSafeImageDataURL(item.dataURL) || /^04-素材文件\/.*\.(png|jpe?g|webp|gif)$/i.test(assetHref || '');
+      const preview = isImageAsset
+        ? `<img src="${safeAttr(assetHref)}" alt="${safeAttr(item.name)}">`
         : '<div class="file-chip">文件</div>';
       return `<div class="asset-link">
         ${preview}
         <div class="asset-link-main">
           <div class="asset-name">${safeText(item.name)}</div>
           <div class="asset-sub">${safeText(item.type || '未知类型')} · ${formatFileSize(item.size)}</div>
-          <a download="${safeAttr(item.name)}" href="${safeAttr(item.dataURL)}">下载素材</a>
+          <a download="${safeAttr(item.name)}" href="${safeAttr(assetHref)}">打开/下载素材</a>
         </div>
       </div>`;
     }).join('') + '</div>';
@@ -5008,15 +5001,16 @@ function generateAssetPackageHTML(data, items) {
   }
 
   const allAssets = items.map(function(item, index) {
-    const isImg = isSafeImageDataURL(item.dataURL);
+    const assetHref = item.packagePath || item.dataURL;
+    const isImg = isSafeImageDataURL(item.dataURL) || /^04-素材文件\/.*\.(png|jpe?g|webp|gif)$/i.test(assetHref || '');
     return `<section class="asset">
       <div class="asset-index">${index + 1}</div>
       <div class="asset-body">
         <div class="asset-meta">${safeText(item.page)} / ${safeText(item.section)} / ${safeText(item.field)}</div>
         <h3>${safeText(item.name)}</h3>
         <p>${safeText(item.type || '未知类型')} · ${formatFileSize(item.size)}</p>
-        ${isImg ? `<img src="${safeAttr(item.dataURL)}" alt="${safeAttr(item.name)}">` : ''}
-        <a download="${safeAttr(item.name)}" href="${safeAttr(item.dataURL)}">下载这个文件</a>
+        ${isImg ? `<img src="${safeAttr(assetHref)}" alt="${safeAttr(item.name)}">` : ''}
+        <a download="${safeAttr(item.name)}" href="${safeAttr(assetHref)}">打开/下载这个文件</a>
       </div>
     </section>`;
   });
@@ -5055,17 +5049,279 @@ function generateAssetPackageHTML(data, items) {
   </div></body></html>`;
 }
 
+function sanitizeZipSegment(name, fallback) {
+  var value = String(name || fallback || '未命名')
+    .replace(/[\\/:*?"<>|\x00-\x1f]+/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[. ]+$/g, '');
+  return (value || fallback || '未命名').substring(0, 80);
+}
+
+function getExtensionFromType(type, dataURL) {
+  var mime = String(type || '').toLowerCase();
+  if (!mime && dataURL) {
+    var match = String(dataURL).match(/^data:([^;,]+)/i);
+    if (match) mime = match[1].toLowerCase();
+  }
+  var map = {
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+    'image/gif': '.gif',
+    'video/mp4': '.mp4',
+    'application/pdf': '.pdf',
+    'text/plain': '.txt',
+    'text/csv': '.csv',
+    'application/vnd.ms-excel': '.xls',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+    'application/msword': '.doc',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+    'application/zip': '.zip',
+    'application/x-zip-compressed': '.zip'
+  };
+  return map[mime] || '';
+}
+
+function ensureFileExtension(name, type, dataURL) {
+  var clean = sanitizeZipSegment(name, '素材文件');
+  if (/\.[a-z0-9]{1,8}$/i.test(clean)) return clean;
+  return clean + (getExtensionFromType(type, dataURL) || '.bin');
+}
+
+function dataURLToBytes(dataURL) {
+  var parts = String(dataURL || '').split(',');
+  if (parts.length < 2) return new Uint8Array();
+  var meta = parts[0];
+  var body = parts.slice(1).join(',');
+  var binary = meta.indexOf(';base64') >= 0 ? atob(body) : decodeURIComponent(body);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i) & 255;
+  return bytes;
+}
+
+function makePackageItems(data, items) {
+  var used = {};
+  return items.map(function(item, index) {
+    var section = data.sections.find(function(sec) {
+      return sec.page === item.page && sec.name === item.section;
+    });
+    var pageDir = sanitizeZipSegment(item.page, '页面');
+    var secDir = String(section ? section.num : index + 1).padStart(2, '0') + '-' + sanitizeZipSegment(item.section, '区块');
+    var fieldDir = sanitizeZipSegment(item.field, '字段');
+    var fileName = String(index + 1).padStart(3, '0') + '-' + ensureFileExtension(item.name, item.type, item.dataURL);
+    var path = '04-素材文件/' + pageDir + '/' + secDir + '/' + fieldDir + '/' + fileName;
+    var base = path;
+    var n = 2;
+    while (used[path.toLowerCase()]) {
+      path = base.replace(/(\.[^./]+)?$/, '-' + n + '$1');
+      n++;
+    }
+    used[path.toLowerCase()] = true;
+    return Object.assign({}, item, {
+      packagePath: path,
+      packageFolder: '04-素材文件/' + pageDir + '/' + secDir + '/' + fieldDir
+    });
+  });
+}
+
+function generateAssetPackageCSV(data, items) {
+  var rows = [['页面', '区块编号', '区块名称', '字段名称', '填写内容', '素材路径']];
+  data.sections.forEach(function(sec) {
+    sec.fields.forEach(function(field) {
+      var matched = items.filter(function(item) {
+        return item.page === sec.page && item.section === sec.name && item.field === field.label;
+      }).map(function(item) { return item.packagePath; }).join('\n');
+      rows.push([sec.page, String(sec.num).padStart(2, '0'), sec.name, field.label, field.value || '', matched]);
+    });
+  });
+  function cell(value) {
+    return '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"';
+  }
+  return '\uFEFF' + rows.map(function(row) { return row.map(cell).join(','); }).join('\n');
+}
+
+function generatePackageReadme(data, items) {
+  return [
+    companyName + ' - 设计素材包',
+    '',
+    '使用方式：',
+    '1. 先打开 01-设计需求表.html 查看客户填写的完整需求。',
+    '2. 需要素材时，按表单中的链接打开对应文件，或直接进入 04-素材文件 文件夹查找。',
+    '3. 素材文件夹按 旺铺首页 / 商品详情、区块、字段 分好类，方便美工制作和选用。',
+    '4. 02-素材清单.csv 可用 Excel 打开，用于快速核对字段和素材路径。',
+    '',
+    '区块数量：' + data.totalSections,
+    '已填写区块：' + data.filledSections,
+    '素材文件：' + items.length,
+    '导出时间：' + new Date().toLocaleString('zh-CN')
+  ].join('\n');
+}
+
+var ZIP_CRC_TABLE = null;
+function getZipCrcTable() {
+  if (ZIP_CRC_TABLE) return ZIP_CRC_TABLE;
+  ZIP_CRC_TABLE = new Uint32Array(256);
+  for (var n = 0; n < 256; n++) {
+    var c = n;
+    for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    ZIP_CRC_TABLE[n] = c >>> 0;
+  }
+  return ZIP_CRC_TABLE;
+}
+
+function zipCrc32(bytes) {
+  var table = getZipCrcTable();
+  var crc = 0 ^ -1;
+  for (var i = 0; i < bytes.length; i++) crc = (crc >>> 8) ^ table[(crc ^ bytes[i]) & 255];
+  return (crc ^ -1) >>> 0;
+}
+
+function zipDosTime(date) {
+  return ((date.getHours() & 31) << 11) | ((date.getMinutes() & 63) << 5) | ((Math.floor(date.getSeconds() / 2)) & 31);
+}
+
+function zipDosDate(date) {
+  return (((date.getFullYear() - 1980) & 127) << 9) | (((date.getMonth() + 1) & 15) << 5) | (date.getDate() & 31);
+}
+
+function zipU16(value) {
+  var out = new Uint8Array(2);
+  out[0] = value & 255;
+  out[1] = (value >>> 8) & 255;
+  return out;
+}
+
+function zipU32(value) {
+  var out = new Uint8Array(4);
+  out[0] = value & 255;
+  out[1] = (value >>> 8) & 255;
+  out[2] = (value >>> 16) & 255;
+  out[3] = (value >>> 24) & 255;
+  return out;
+}
+
+function concatBytes(parts) {
+  var total = parts.reduce(function(sum, part) { return sum + part.length; }, 0);
+  var out = new Uint8Array(total);
+  var offset = 0;
+  parts.forEach(function(part) {
+    out.set(part, offset);
+    offset += part.length;
+  });
+  return out;
+}
+
+function makeZip(entries) {
+  var encoder = new TextEncoder();
+  var now = new Date();
+  var locals = [];
+  var centrals = [];
+  var offset = 0;
+
+  entries.forEach(function(entry) {
+    var pathBytes = encoder.encode(entry.path.replace(/\\/g, '/'));
+    var dataBytes = typeof entry.data === 'string' ? encoder.encode(entry.data) : entry.data;
+    var crc = zipCrc32(dataBytes);
+    var local = concatBytes([
+      zipU32(0x04034b50),
+      zipU16(20),
+      zipU16(0x0800),
+      zipU16(0),
+      zipU16(zipDosTime(now)),
+      zipU16(zipDosDate(now)),
+      zipU32(crc),
+      zipU32(dataBytes.length),
+      zipU32(dataBytes.length),
+      zipU16(pathBytes.length),
+      zipU16(0),
+      pathBytes,
+      dataBytes
+    ]);
+    locals.push(local);
+
+    var central = concatBytes([
+      zipU32(0x02014b50),
+      zipU16(20),
+      zipU16(20),
+      zipU16(0x0800),
+      zipU16(0),
+      zipU16(zipDosTime(now)),
+      zipU16(zipDosDate(now)),
+      zipU32(crc),
+      zipU32(dataBytes.length),
+      zipU32(dataBytes.length),
+      zipU16(pathBytes.length),
+      zipU16(0),
+      zipU16(0),
+      zipU16(0),
+      zipU16(0),
+      zipU32(0),
+      zipU32(offset),
+      pathBytes
+    ]);
+    centrals.push(central);
+    offset += local.length;
+  });
+
+  var centralSize = centrals.reduce(function(sum, part) { return sum + part.length; }, 0);
+  var centralOffset = offset;
+  var end = concatBytes([
+    zipU32(0x06054b50),
+    zipU16(0),
+    zipU16(0),
+    zipU16(entries.length),
+    zipU16(entries.length),
+    zipU32(centralSize),
+    zipU32(centralOffset),
+    zipU16(0)
+  ]);
+  return concatBytes(locals.concat(centrals, [end]));
+}
+
 async function doAssetPackageExport() {
   const data = collectFormData();
-  const items = await collectAssetPackageItems();
+  const rawItems = await collectAssetPackageItems();
+  const items = makePackageItems(data, rawItems);
   const html = generateAssetPackageHTML(data, items);
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const csv = generateAssetPackageCSV(data, items);
+  const payload = {
+    companyName: companyName,
+    exportedAt: new Date().toISOString(),
+    totalSections: data.totalSections,
+    filledSections: data.filledSections,
+    assets: items.map(function(item) {
+      return {
+        page: item.page,
+        section: item.section,
+        field: item.field,
+        name: item.name,
+        type: item.type,
+        size: item.size,
+        packagePath: item.packagePath
+      };
+    }),
+    sections: data.sections
+  };
+
+  const entries = [
+    { path: '00-使用说明.txt', data: generatePackageReadme(data, items) },
+    { path: '01-设计需求表.html', data: html },
+    { path: '02-素材清单.csv', data: csv },
+    { path: '03-表单数据.json', data: JSON.stringify(payload, null, 2) }
+  ];
+  items.forEach(function(item) {
+    entries.push({ path: item.packagePath, data: dataURLToBytes(item.dataURL) });
+  });
+
+  const blob = new Blob([makeZip(entries)], { type: 'application/zip' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${sanitizeFileName(companyName)}_素材包.html`;
+  a.download = `${sanitizeFileName(companyName)}_设计素材包.zip`;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
   document.querySelector('.export-modal-overlay')?.remove();
 }
 
