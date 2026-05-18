@@ -2937,6 +2937,8 @@ let companyName = '';
 let filledSections = {};
 let adminRefImages = {}; // { 'wangpu_dianzhao': ['<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> ref1','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> ref2'], ... }
 const ADMIN_PASSWORD_KEY = 'alibaba-admin-password-v2';
+const ADMIN_SECTION_CONFIG_KEY = 'alibaba-admin-section-config-v1';
+const ADMIN_CONFIG_VERSION_KEY = 'alibaba-admin-config-version-v1';
 const SAFE_IMAGE_MIME_RE = /^image\/(?:png|jpe?g|gif|webp)$/i;
 const SAFE_IMAGE_DATA_RE = /^data:image\/(?:png|jpe?g|gif|webp);base64,[a-z0-9+/=]+$/i;
 const SUPPLEMENT_FILE_ACCEPT = '.doc,.docx,.xls,.xlsx,.pdf,.ppt,.pptx,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/csv,application/csv';
@@ -3028,6 +3030,72 @@ function sanitizeHexColor(hex, fallback) {
 
 function sanitizeFileName(name) {
   return (name || '设计需求单').replace(/[\\/:*?"<>|]+/g, '_').substring(0, 80);
+}
+
+function parseAdminRefs(value) {
+  if (Array.isArray(value)) {
+    return value.map(function(ref) {
+      if (typeof ref === 'string') {
+        var parts = ref.split('|');
+        return { text: (parts[0] || '').trim(), url: (parts.slice(1).join('|') || '').trim() };
+      }
+      return {
+        text: (ref && ref.text || '').trim(),
+        url: (ref && ref.url || '').trim()
+      };
+    }).filter(function(ref) { return ref.text || ref.url; });
+  }
+  return String(value || '').split('\n').map(function(line) {
+    var parts = line.split('|');
+    return { text: (parts[0] || '').trim(), url: (parts.slice(1).join('|') || '').trim() };
+  }).filter(function(ref) { return ref.text || ref.url; });
+}
+
+function loadAdminSectionConfigMap() {
+  var raw = '';
+  try { raw = localStorage.getItem(ADMIN_SECTION_CONFIG_KEY) || ''; } catch(e) {}
+  if (raw) {
+    try { return JSON.parse(raw) || {}; } catch(e) {}
+  }
+
+  // One-time compatibility: older builds saved admin edits under the active account.
+  try {
+    var legacy = localStorage.getItem(getStorageKey('sections-config'));
+    if (legacy) {
+      var parsed = JSON.parse(legacy) || {};
+      localStorage.setItem(ADMIN_SECTION_CONFIG_KEY, JSON.stringify(parsed));
+      return parsed;
+    }
+  } catch(e) {}
+  return {};
+}
+
+function saveAdminSectionConfigMap(config) {
+  try {
+    localStorage.setItem(ADMIN_SECTION_CONFIG_KEY, JSON.stringify(config || {}));
+    localStorage.setItem(ADMIN_CONFIG_VERSION_KEY, String(Date.now()));
+  } catch(e) {}
+}
+
+function applySectionConfigToRuntime(secKey, cfg) {
+  if (!cfg) return;
+  var parts = String(secKey || '').split('_');
+  var pageKey = parts[0];
+  var sectionKey = parts.slice(1).join('_');
+  if (!sectionsData[pageKey] || !sectionsData[pageKey][sectionKey]) return;
+  var sec = sectionsData[pageKey][sectionKey];
+  if (typeof cfg.materials === 'string') sec.materials = cfg.materials;
+  if (typeof cfg.concerns === 'string') sec.concerns = cfg.concerns;
+  if (typeof cfg.hint === 'string') sec.hint = cfg.hint;
+  if (cfg.refs !== undefined) sec.refs = parseAdminRefs(cfg.refs);
+  if (Array.isArray(cfg.refImages)) adminRefImages[secKey] = cfg.refImages;
+}
+
+function applyAllSectionConfigToRuntime() {
+  var config = loadAdminSectionConfigMap();
+  Object.keys(config).forEach(function(secKey) {
+    applySectionConfigToRuntime(secKey, config[secKey]);
+  });
 }
 
 // ===== MULTI-USER ACCOUNT SYSTEM =====
@@ -3203,6 +3271,7 @@ function enterApp() {
 }
 
 function enterAppDirect() {
+  applyAllSectionConfigToRuntime();
   document.getElementById('sidebarCompany').textContent = companyName;
   document.getElementById('breadcrumb').innerHTML = '<span id="currentSectionName">店招</span>';
   currentMode = 'client';
@@ -3257,6 +3326,7 @@ function setAdminPassword(pwd) {
 }
 
 function enterAdminMode() {
+  applyAllSectionConfigToRuntime();
   document.getElementById('authModal').classList.remove('active');
   
   if (!companyName) {
@@ -3311,6 +3381,7 @@ document.getElementById('authModal').addEventListener('click', function(e) {
 
 // ===== RENDER SECTION =====
 function renderSection() {
+  if (currentMode !== 'admin') applyAllSectionConfigToRuntime();
   const s = sectionsData[currentPage][currentSection];
   const isAdmin = currentMode === 'admin';
   const refKey = currentPage + '_' + currentSection;
@@ -3332,20 +3403,20 @@ function renderSection() {
     <div class="info-grid">
       <div class="info-panel">
         <h4><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg> 需要提供的素材</h4>
-        <textarea oninput="autoSave()" data-field="materials" style="width:100%;min-height:100px;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;font-family:inherit;">${safeText(s.materials)}</textarea>
+        <textarea oninput="onAdminConfigInput()" data-field="materials" style="width:100%;min-height:100px;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;font-family:inherit;">${safeText(s.materials)}</textarea>
       </div>
       <div class="info-panel">
         <h4><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> 买家关注点</h4>
-        <textarea oninput="autoSave()" data-field="concerns" style="width:100%;min-height:100px;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;font-family:inherit;">${safeText(s.concerns)}</textarea>
+        <textarea oninput="onAdminConfigInput()" data-field="concerns" style="width:100%;min-height:100px;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:13px;font-family:inherit;">${safeText(s.concerns)}</textarea>
       </div>
     </div>
     <div class="input-group">
       <label>填充提示语</label>
-      <input type="text" oninput="autoSave()" data-field="hint" value="${safeAttr(s.hint)}" style="width:100%;">
+      <input type="text" oninput="onAdminConfigInput()" data-field="hint" value="${safeAttr(s.hint)}" style="width:100%;">
     </div>
     <div class="input-group">
       <label>参考链接（每行一个，格式：名称 | URL）</label>
-      <textarea oninput="autoSave()" data-field="refs" style="width:100%;min-height:50px;">${safeText(s.refs.map(r => r.text + ' | ' + r.url).join('\n'))}</textarea>
+      <textarea oninput="onAdminConfigInput()" data-field="refs" style="width:100%;min-height:50px;">${safeText(s.refs.map(r => r.text + ' | ' + r.url).join('\n'))}</textarea>
     </div>
     
     <!-- Reference Images Upload -->
@@ -3511,10 +3582,15 @@ function addRefImage(refKey) {
 function removeRefImage(refKey, index) {
   adminRefImages[refKey].splice(index, 1);
   renderSection();
+  saveSectionConfig({ silent: true });
   showSaveToast('参考图片已删除');
 }
 
 function switchToClientMode() {
+  if (currentMode === 'admin') {
+    clearTimeout(adminConfigSaveTimeout);
+    saveSectionConfig({ silent: true });
+  }
   currentMode = 'client';
   document.getElementById('adminModeBadge').style.display = 'none';
   document.getElementById('adminLockBtn').style.display = 'inline-block';
@@ -4336,11 +4412,34 @@ function showSaveToast(msg) {
   setTimeout(() => toast.classList.remove('show'), 1800);
 }
 
-function saveSectionConfig() {
-  // Save section config edits for current section
-  var key = getStorageKey('sections-config');
-  var config = {};
-  try { config = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) { config = {}; }
+let adminConfigSaveTimeout;
+
+function notifyAdminConfigChanged() {
+  try {
+    if (window.__adminConfigChannel) {
+      window.__adminConfigChannel.postMessage({ type: 'admin-config-updated', at: Date.now() });
+    }
+  } catch(e) {}
+}
+
+function onAdminConfigInput() {
+  const indicator = document.getElementById('saveIndicator');
+  const saveText = document.getElementById('saveText');
+  if (indicator) indicator.classList.add('saving');
+  if (saveText) saveText.innerHTML = '后台配置保存中...';
+
+  clearTimeout(adminConfigSaveTimeout);
+  adminConfigSaveTimeout = setTimeout(function() {
+    saveSectionConfig({ silent: true });
+    if (indicator) indicator.classList.remove('saving');
+    if (saveText) saveText.innerHTML = '后台配置已同步';
+  }, 350);
+}
+
+function saveSectionConfig(options) {
+  options = options || {};
+  // Save section config edits as global admin configuration.
+  var config = loadAdminSectionConfigMap();
   var secKey = currentPage + '_' + currentSection;
   if (!config[secKey]) config[secKey] = {};
   
@@ -4353,25 +4452,47 @@ function saveSectionConfig() {
   if (materialsEl) config[secKey].materials = materialsEl.value;
   if (concernsEl) config[secKey].concerns = concernsEl.value;
   if (hintEl) config[secKey].hint = hintEl.value;
-  if (refsEl) config[secKey].refs = refsEl.value;
+  if (refsEl) config[secKey].refs = parseAdminRefs(refsEl.value);
   
   // Save admin ref images
   var refKey = currentPage + '_' + currentSection;
   if (adminRefImages[refKey]) config[secKey].refImages = adminRefImages[refKey];
   
-  try { localStorage.setItem(key, JSON.stringify(config)); } catch(e) {}
-  showSaveToast('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 区块配置已保存');
+  saveAdminSectionConfigMap(config);
+  applySectionConfigToRuntime(secKey, config[secKey]);
+  notifyAdminConfigChanged();
+  if (!options.silent) {
+    showSaveToast('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 区块配置已同步到客户视角');
+  }
 }
 
 function loadSectionConfig(secKey) {
-  var key = getStorageKey('sections-config');
-  var raw = localStorage.getItem(key);
-  if (!raw) return null;
-  try {
-    var config = JSON.parse(raw);
-    return config[secKey] || null;
-  } catch(e) { return null; }
+  return loadAdminSectionConfigMap()[secKey] || null;
 }
+
+function handleAdminConfigChanged() {
+  applyAllSectionConfigToRuntime();
+  if (currentMode === 'client' && document.getElementById('appLayout')?.classList.contains('active')) {
+    renderSection();
+  }
+}
+
+try {
+  if ('BroadcastChannel' in window) {
+    window.__adminConfigChannel = new BroadcastChannel('alibaba-admin-config');
+    window.__adminConfigChannel.onmessage = function(event) {
+      if (event && event.data && event.data.type === 'admin-config-updated') {
+        handleAdminConfigChanged();
+      }
+    };
+  }
+} catch(e) {}
+
+window.addEventListener('storage', function(event) {
+  if (event.key === ADMIN_SECTION_CONFIG_KEY || event.key === ADMIN_CONFIG_VERSION_KEY) {
+    handleAdminConfigChanged();
+  }
+});
 
 // ===== NAVIGATION =====
 function switchPage(page) {
@@ -4563,6 +4684,7 @@ function isMeaningfulFieldValue(value, type) {
 }
 
 function collectFormData() {
+  applyAllSectionConfigToRuntime();
   persistFormData();
   const savedFormData = getSavedFormDataObject();
   const data = { sections: [], totalSections: 0, filledSections: 0 };
